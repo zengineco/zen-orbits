@@ -1,0 +1,1374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#050a1a">
+<title>Zen Orbits — Castles Fall. Gravity Remains.</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Cinzel+Decorative:wght@400;700&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:#050a1a;}
+body{display:flex;align-items:center;justify-content:center;touch-action:none;}
+
+#game-wrap{
+  position:relative;
+  width:100%;
+  max-width:480px;
+  height:100dvh;
+  max-height:900px;
+}
+#c{
+  display:block;
+  width:100%;
+  height:100%;
+  touch-action:none;
+}
+
+/* ── OVERLAYS ── */
+.overlay{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  z-index:10;
+  pointer-events:none;
+  opacity:0;
+  transition:opacity .4s;
+}
+.overlay.show{opacity:1;pointer-events:all;}
+
+.panel{
+  background:rgba(5,10,26,0.88);
+  border:1px solid rgba(180,160,255,0.25);
+  border-radius:16px;
+  padding:32px 28px;
+  max-width:320px;
+  width:90%;
+  text-align:center;
+  backdrop-filter:blur(12px);
+  box-shadow:0 0 60px rgba(120,80,255,0.2),inset 0 0 40px rgba(80,50,200,0.08);
+}
+.panel h1{
+  font-family:'Cinzel Decorative',serif;
+  font-size:clamp(22px,5vw,30px);
+  color:#e8d8ff;
+  text-shadow:0 0 20px rgba(180,140,255,0.8);
+  margin-bottom:6px;
+  line-height:1.2;
+}
+.panel .subtitle{
+  font-family:'Cinzel',serif;
+  font-size:11px;
+  color:rgba(180,160,220,0.7);
+  letter-spacing:3px;
+  margin-bottom:24px;
+}
+.panel p{
+  font-family:'Cinzel',serif;
+  font-size:13px;
+  color:rgba(200,185,240,0.8);
+  line-height:1.7;
+  margin-bottom:20px;
+}
+.score-big{
+  font-family:'Cinzel Decorative',serif;
+  font-size:clamp(36px,8vw,52px);
+  color:#ffd700;
+  text-shadow:0 0 20px rgba(255,200,0,0.6);
+  margin:8px 0;
+}
+.score-label{
+  font-family:'Cinzel',serif;
+  font-size:11px;
+  color:rgba(255,200,80,0.7);
+  letter-spacing:3px;
+  margin-bottom:20px;
+}
+.btn{
+  display:inline-block;
+  font-family:'Cinzel',serif;
+  font-size:13px;
+  letter-spacing:2px;
+  padding:12px 28px;
+  border:1px solid rgba(180,150,255,0.5);
+  border-radius:8px;
+  background:rgba(120,80,255,0.15);
+  color:#e0d0ff;
+  cursor:pointer;
+  margin:4px;
+  transition:all .2s;
+  pointer-events:all;
+}
+.btn:hover,.btn:active{
+  background:rgba(160,120,255,0.3);
+  border-color:rgba(220,200,255,0.7);
+  color:#fff;
+  box-shadow:0 0 20px rgba(160,120,255,0.4);
+}
+.btn.primary{
+  background:rgba(120,80,255,0.35);
+  border-color:rgba(200,170,255,0.7);
+  font-weight:700;
+}
+
+/* HUD */
+#hud{
+  position:absolute;top:0;left:0;right:0;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:12px 16px;
+  pointer-events:none;
+  z-index:5;
+}
+.hud-cell{
+  font-family:'Cinzel',serif;
+  font-size:11px;
+  color:rgba(200,185,240,0.8);
+  letter-spacing:1px;
+}
+.hud-val{
+  font-family:'Cinzel Decorative',serif;
+  font-size:16px;
+  color:#e8d8ff;
+  text-shadow:0 0 10px rgba(160,130,255,0.6);
+}
+.lives-pip{
+  display:inline-block;
+  width:8px;height:8px;
+  border-radius:50%;
+  background:rgba(180,150,255,0.3);
+  margin:0 2px;
+  transition:background .3s;
+}
+.lives-pip.alive{background:#c0a0ff;box-shadow:0 0 6px #a080ff;}
+
+/* Active bonus indicators */
+#bonus-bar{
+  position:absolute;bottom:90px;left:50%;transform:translateX(-50%);
+  display:flex;gap:6px;
+  z-index:5;pointer-events:none;
+}
+.bonus-pip{
+  font-size:18px;
+  animation:bonusPulse 1s ease-in-out infinite;
+  filter:drop-shadow(0 0 6px rgba(255,220,100,0.8));
+}
+@keyframes bonusPulse{
+  0%,100%{transform:scale(1);}
+  50%{transform:scale(1.15);}
+}
+</style>
+</head>
+<body>
+<div id="game-wrap">
+  <canvas id="c"></canvas>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-cell">
+      <div style="font-size:9px;opacity:.6;letter-spacing:2px;">SCORE</div>
+      <div class="hud-val" id="hud-score">0</div>
+    </div>
+    <div class="hud-cell" style="text-align:center;">
+      <div style="font-size:9px;opacity:.6;letter-spacing:2px;">LEVEL</div>
+      <div class="hud-val" id="hud-level">I</div>
+    </div>
+    <div class="hud-cell" style="text-align:right;">
+      <div style="font-size:9px;opacity:.6;letter-spacing:2px;">LIVES</div>
+      <div id="hud-lives"></div>
+    </div>
+  </div>
+
+  <!-- Active bonuses -->
+  <div id="bonus-bar"></div>
+
+  <!-- TITLE -->
+  <div class="overlay show" id="ov-title">
+    <div class="panel">
+      <h1>ZEN<br>ORBITS</h1>
+      <div class="subtitle">CASTLES FALL · GRAVITY REMAINS</div>
+      <p>Guide the moon.<br>Loose the comet.<br>Watch ancient citadels crumble.</p>
+      <button class="btn primary" onclick="startGame()">✦ BEGIN ✦</button>
+      <br>
+      <button class="btn" onclick="showHow()">How to Play</button>
+    </div>
+  </div>
+
+  <!-- HOW TO PLAY -->
+  <div class="overlay" id="ov-how">
+    <div class="panel">
+      <h1 style="font-size:20px;">HOW TO PLAY</h1>
+      <div class="subtitle" style="margin-bottom:16px;">CONTROLS & BRICKS</div>
+      <p style="font-size:12px;text-align:left;">
+        🌙 <b>Moon Paddle</b> — drag left/right to move<br><br>
+        ☄️ <b>Comet</b> — bounces off moon and castle<br><br>
+        🧱 Stone — 1 hit &nbsp;&nbsp; 🛡 Reinforced — 3 hits<br>
+        💎 Crystal — bonus &nbsp;&nbsp; 🔥 Volatile — explodes<br>
+        🌀 Gravity — curves comet path<br><br>
+        <b>Power-ups drop from bricks:</b><br>
+        ☄️ Extra comet &nbsp; 🌕 Big moon<br>
+        ✨ Score ×2 &nbsp; 🧲 Auto-aim<br>
+        🕰 Slow motion &nbsp; 💥 Shockwave
+      </p>
+      <button class="btn primary" onclick="hideHow()">Got it ✦</button>
+    </div>
+  </div>
+
+  <!-- LEVEL COMPLETE -->
+  <div class="overlay" id="ov-levelwin">
+    <div class="panel">
+      <h1 style="font-size:22px;">CASTLE<br>FALLEN</h1>
+      <div class="subtitle">LEVEL COMPLETE</div>
+      <div class="score-big" id="lw-score">0</div>
+      <div class="score-label">POINTS</div>
+      <p id="lw-msg" style="font-size:12px;"></p>
+      <button class="btn primary" onclick="nextLevel()">Next Castle ✦</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="overlay" id="ov-gameover">
+    <div class="panel">
+      <h1 style="font-size:22px;">THE COMET<br>IS LOST</h1>
+      <div class="subtitle">GAME OVER</div>
+      <div class="score-big" id="go-score">0</div>
+      <div class="score-label">FINAL SCORE</div>
+      <button class="btn primary" onclick="startGame()">Try Again ✦</button>
+      <button class="btn" onclick="showTitle()">Title</button>
+    </div>
+  </div>
+
+  <!-- WIN -->
+  <div class="overlay" id="ov-win">
+    <div class="panel">
+      <h1>ALL CASTLES<br>FALLEN</h1>
+      <div class="subtitle">VICTORY</div>
+      <div class="score-big" id="win-score">0</div>
+      <div class="score-label">TOTAL SCORE</div>
+      <p>The cosmos is at peace.<br>Gravity remains.</p>
+      <button class="btn primary" onclick="startGame()">Ascend Again ✦</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+'use strict';
+// ════════════════════════════════════════════════════════════════
+//  ZEN ORBITS — Castles Fall. Gravity Remains.
+//  Full deterministic brick-breaker with castle destruction,
+//  comet physics, moon paddle, particle systems, power-ups.
+//  State-driven. Render is pure function of state.
+// ════════════════════════════════════════════════════════════════
+
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const wrap   = document.getElementById('game-wrap');
+
+// ── RESIZE ──────────────────────────────────────────────────────
+let W, H;
+function resize(){
+  const r = wrap.getBoundingClientRect();
+  W = canvas.width  = r.width;
+  H = canvas.height = r.height;
+  if(G && G.phase==='playing') layoutMoon();
+}
+window.addEventListener('resize', resize);
+
+// ── CONSTANTS ───────────────────────────────────────────────────
+const CFG = {
+  MOON_Y_FRAC:    0.88,     // moon Y as fraction of H
+  MOON_W_BASE:    70,       // moon paddle half-width
+  MOON_H:         14,       // moon paddle height
+  COMET_R:        7,
+  COMET_SPEED:    5.5,
+  TRAIL_LEN:      22,
+  BRICK_ROWS:     7,
+  BRICK_COLS:     10,
+  BRICK_H:        22,
+  BRICK_GAP:      3,
+  CASTLE_TOP:     0.08,     // fraction of H
+  PARTICLE_MAX:   300,
+  STAR_COUNT:     200,
+  CLOUD_COUNT:    6,
+  GRAVITY_BRICK_PULL: 0.12,
+  SHOCKWAVE_R:    120,
+};
+
+// Brick type catalog — data-driven
+const BRICK_TYPES = {
+  STONE:     { hp:1, color:'#8878a8', glow:'#c0b0e0', score:10,  symbol:'🧱', dropChance:0.08 },
+  REINFORCE: { hp:3, color:'#5566aa', glow:'#8899dd', score:30,  symbol:'🛡',  dropChance:0.15 },
+  CRYSTAL:   { hp:1, color:'#44ddcc', glow:'#88ffee', score:50,  symbol:'💎', dropChance:0.9  },
+  VOLATILE:  { hp:1, color:'#ee6644', glow:'#ff9977', score:20,  symbol:'🔥', explodes:true, dropChance:0.1 },
+  GRAVITY:   { hp:2, color:'#9944cc', glow:'#cc88ff', score:25,  symbol:'🌀', gravity:true, dropChance:0.1 },
+};
+
+// Power-up catalog
+const BONUS_TYPES = [
+  { id:'EXTRA_COMET',  emoji:'☄️',  label:'Extra Comet',  duration:0    },
+  { id:'BIG_MOON',     emoji:'🌕',  label:'Big Moon',     duration:600  },
+  { id:'MULTIPLIER',   emoji:'✨',  label:'Score ×2',     duration:500  },
+  { id:'MAGNET',       emoji:'🧲',  label:'Auto-Aim',     duration:400  },
+  { id:'SLOW',         emoji:'🕰',  label:'Slow Motion',  duration:350  },
+  { id:'SHOCKWAVE',    emoji:'💥',  label:'Shockwave',    duration:0    },
+  { id:'MULTIBALL',    emoji:'🌈',  label:'Comet Split',  duration:0    },
+];
+
+// ── LEVEL DEFINITIONS ───────────────────────────────────────────
+// Castle layouts: each level defines the brick grid pattern.
+// 0=empty, S=stone, R=reinforced, C=crystal, V=volatile, G=gravity
+const LEVELS = [
+  {
+    id:0, name:'The First Citadel',
+    roman:'I', speedMult:1.0,
+    layout:[
+      '  SSSSSSSS  ',
+      ' SSRSSRSS  ',
+      'SSSSSSSSSSS',
+      'SRRRSSRRRSS',
+      'SSCSSSCSSSS',
+      ' SSSSSSSSS ',
+      '  SSSSSSS  ',
+    ],
+  },
+  {
+    id:1, name:'The Twin Towers',
+    roman:'II', speedMult:1.15,
+    layout:[
+      'SSS     SSS',
+      'SSRS   SRSS',
+      'SRRS   SRRS',
+      'SCRS   SRCS',
+      'SSRSSSSRSS',
+      ' SSSSSSSSS ',
+      'SSSSSSSSSSS',
+    ],
+  },
+  {
+    id:2, name:'The Granite Keep',
+    roman:'III', speedMult:1.3,
+    layout:[
+      ' SRSRSRSRS ',
+      'SRRSRSRSRRS',
+      'RRRRRRRRRR ',
+      'RRCRRRCRRR ',
+      'RVRRRRRRVRR',
+      'RRRRRRRRRR ',
+      'SRRSRSRSRRS',
+    ],
+  },
+  {
+    id:3, name:'The Crystal Spire',
+    roman:'IV', speedMult:1.45,
+    layout:[
+      '    CCC    ',
+      '   CCCCC   ',
+      '  CSCSCSC  ',
+      ' CSSSSSSC  ',
+      'CSSRRRSSSC ',
+      'CSRRRRRRSC ',
+      'CCCCCCCCC  ',
+    ],
+  },
+  {
+    id:4, name:'The Volatile Fortress',
+    roman:'V', speedMult:1.6,
+    layout:[
+      'SVSVSVSVSVS',
+      'VSVSVSVSVSV',
+      'SRGRGRGRGSS',
+      'RGGCCCGGRS ',
+      'RGGSSSGGRS ',
+      'SRGGGGGRS  ',
+      'SSSRRRSSSS ',
+    ],
+  },
+  {
+    id:5, name:'The Gravity Citadel',
+    roman:'VI', speedMult:1.75,
+    layout:[
+      'GSGSGSGSGSG',
+      'SGSGSGSGSGS',
+      'GGRGGRGGRG ',
+      'RRGCRCRGRR ',
+      'GGRGGRGGRG ',
+      'SGSGSGSGSGS',
+      'GSGSGSGSGSG',
+    ],
+  },
+  {
+    id:6, name:'The Eternal Bastion',
+    roman:'VII', speedMult:2.0,
+    layout:[
+      'SRRSRRSSRRS',
+      'RRCRRCRRCRR',
+      'RVRSRSRSVRR',
+      'GRGCRCRGRGR',
+      'RVRSRSRSVRR',
+      'RRCRRCRRCRR',
+      'SRRSRRSSRRS',
+    ],
+  },
+];
+
+// ── GAME STATE ───────────────────────────────────────────────────
+let G = null;
+let RAF = null;
+let lastT = 0;
+
+// Static assets (generated once)
+let STARS = [];
+let CLOUDS = [];
+
+function genStars(){
+  STARS = Array.from({length:CFG.STAR_COUNT}, ()=>({
+    x: Math.random()*2000,
+    y: Math.random()*2000,
+    r: 0.3 + Math.random()*1.5,
+    a: 0.3 + Math.random()*0.7,
+    twinkle: Math.random()*Math.PI*2,
+    speed: 0.005 + Math.random()*0.015,
+    parallax: 0.1 + Math.random()*0.9,
+  }));
+}
+function genClouds(){
+  CLOUDS = Array.from({length:CFG.CLOUD_COUNT}, (_, i)=>({
+    x: Math.random()*2000,
+    y: 80 + Math.random()*(H*0.5),
+    w: 80 + Math.random()*160,
+    h: 20 + Math.random()*40,
+    a: 0.04 + Math.random()*0.06,
+    speed: 0.08 + Math.random()*0.12,
+    layer: i%3,
+  }));
+}
+
+function initState(levelIdx){
+  const lvl = LEVELS[levelIdx % LEVELS.length];
+  const bricks = buildCastle(lvl, levelIdx);
+  return {
+    phase:        'launching', // launching | playing | dying | levelwin | gameover | win
+    levelIdx,
+    lvl,
+    score:        G ? G.score : 0,
+    lives:        G ? G.lives : 3,
+    multiplier:   1,
+    moon: {
+      x:  W/2,
+      y:  H * CFG.MOON_Y_FRAC,
+      hw: CFG.MOON_W_BASE,
+      ht: CFG.MOON_H,
+    },
+    comets:       [],
+    bricks,
+    particles:    [],
+    bonusDrop:    [],
+    activeBonuses:{},
+    tick:         0,
+    shakeT:       0,
+    lastScore:    G ? G.score : 0,
+    gravityBricks: bricks.filter(b=>b.type==='GRAVITY'),
+  };
+}
+
+function buildCastle(lvl, levelIdx){
+  const rows = lvl.layout.length;
+  const cols  = lvl.layout[0].length;
+  const bW = (W - 20) / cols;
+  const bH = CFG.BRICK_H;
+  const topY = H * CFG.CASTLE_TOP;
+  const bricks = [];
+  const MAP = { S:'STONE', R:'REINFORCE', C:'CRYSTAL', V:'VOLATILE', G:'GRAVITY' };
+
+  for(let r=0; r<rows; r++){
+    const row = lvl.layout[r];
+    for(let c=0; c<row.length && c<cols; c++){
+      const ch = row[c];
+      if(!ch || ch===' ') continue;
+      const type = MAP[ch] || 'STONE';
+      const def  = BRICK_TYPES[type];
+      bricks.push({
+        id:   bricks.length,
+        type, def,
+        x:    10 + c * bW,
+        y:    topY + r * (bH + CFG.BRICK_GAP),
+        w:    bW - CFG.BRICK_GAP,
+        h:    bH,
+        hp:   def.hp,
+        maxHp: def.hp,
+        alive: true,
+        crumble: 0,    // 0-1 visual damage
+        shake: 0,
+      });
+    }
+  }
+  return bricks;
+}
+
+function launchComet(){
+  if(!G) return;
+  const angle = -Math.PI/2 + (Math.random()-0.5)*0.6;
+  const spd = CFG.COMET_SPEED * G.lvl.speedMult;
+  G.comets.push({
+    x: G.moon.x,
+    y: G.moon.y - G.moon.ht - CFG.COMET_R,
+    vx: Math.cos(angle)*spd,
+    vy: Math.sin(angle)*spd,
+    trail: [],
+    r: CFG.COMET_R,
+    active: true,
+  });
+  G.phase = 'playing';
+}
+
+// ── INPUT ────────────────────────────────────────────────────────
+let dragX = null;
+let moonDragStart = null;
+let moonStartX = null;
+
+function getX(e){
+  const r = canvas.getBoundingClientRect();
+  if(e.touches) return e.touches[0].clientX - r.left;
+  return e.clientX - r.left;
+}
+
+canvas.addEventListener('mousedown', e=>{
+  if(G && G.phase==='launching'){launchComet();return;}
+  dragX = getX(e);
+  moonDragStart = dragX;
+  moonStartX = G ? G.moon.x : W/2;
+});
+canvas.addEventListener('mousemove', e=>{
+  if(dragX===null || !G) return;
+  const x = getX(e);
+  moveMoon(x - moonDragStart);
+});
+canvas.addEventListener('mouseup', ()=>{ dragX=null; });
+
+canvas.addEventListener('touchstart', e=>{
+  e.preventDefault();
+  if(G && G.phase==='launching'){launchComet();return;}
+  dragX = getX(e);
+  moonDragStart = dragX;
+  moonStartX = G ? G.moon.x : W/2;
+}, {passive:false});
+canvas.addEventListener('touchmove', e=>{
+  e.preventDefault();
+  if(dragX===null || !G) return;
+  const x = getX(e);
+  moveMoon(x - moonDragStart);
+}, {passive:false});
+canvas.addEventListener('touchend', ()=>{ dragX=null; });
+
+// Keyboard
+const KEYS = {};
+document.addEventListener('keydown', e=>{
+  KEYS[e.key]=true;
+  if((e.key===' '||e.key==='Enter') && G && G.phase==='launching') launchComet();
+});
+document.addEventListener('keyup', e=>{ KEYS[e.key]=false; });
+
+function moveMoon(delta){
+  if(!G) return;
+  G.moon.x = Math.max(G.moon.hw, Math.min(W - G.moon.hw, (moonStartX||W/2) + delta));
+}
+
+function layoutMoon(){
+  if(!G) return;
+  G.moon.y = H * CFG.MOON_Y_FRAC;
+}
+
+// ── GAME LOOP ────────────────────────────────────────────────────
+function loop(ts){
+  const dt = Math.min((ts - lastT)/16.67, 3);
+  lastT = ts;
+
+  if(G){
+    update(dt);
+    render();
+    updateHUD();
+  }
+  RAF = requestAnimationFrame(loop);
+}
+
+// ── UPDATE ───────────────────────────────────────────────────────
+function update(dt){
+  if(G.phase==='launching' || G.phase==='levelwin' || G.phase==='gameover' || G.phase==='win') {
+    // still update particles/clouds for visual life
+    updateParticles(dt);
+    updateClouds(dt);
+    return;
+  }
+
+  G.tick += dt;
+
+  // Keyboard moon control
+  const moonSpd = 6 * dt;
+  if(KEYS['ArrowLeft'] || KEYS['a']) G.moon.x = Math.max(G.moon.hw, G.moon.x - moonSpd);
+  if(KEYS['ArrowRight']|| KEYS['d']) G.moon.x = Math.min(W-G.moon.hw, G.moon.x + moonSpd);
+
+  // Speed modifier
+  const spdMod = G.activeBonuses.SLOW ? 0.45 : 1;
+
+  // Update comets
+  G.comets.forEach(comet => updateComet(comet, dt, spdMod));
+
+  // Remove dead comets
+  G.comets = G.comets.filter(c=>c.active);
+
+  // Check all comets lost
+  if(G.comets.length===0){
+    G.lives--;
+    if(G.lives<=0){
+      G.phase='gameover';
+      showOverlay('ov-gameover');
+      document.getElementById('go-score').textContent=G.score.toLocaleString();
+    } else {
+      G.phase='launching';
+    }
+    return;
+  }
+
+  // Bonus drops
+  updateBonusDrops(dt);
+
+  // Active bonus timers
+  updateActiveBonuses(dt);
+
+  // Particles
+  updateParticles(dt);
+  updateClouds(dt);
+
+  // Screen shake decay
+  if(G.shakeT>0) G.shakeT-=dt;
+
+  // Level complete check
+  const alive = G.bricks.filter(b=>b.alive && b.type!=='CRYSTAL');
+  // Crystal bricks are bonus — level clears when non-crystal bricks gone
+  const nonCrystal = G.bricks.filter(b=>b.type!=='CRYSTAL');
+  if(nonCrystal.length>0 && nonCrystal.every(b=>!b.alive)){
+    levelWin();
+  }
+}
+
+function updateComet(comet, dt, spdMod){
+  // Gravity brick influence
+  let gx=0, gy=0;
+  if(!G.activeBonuses.MAGNET){
+    G.bricks.filter(b=>b.alive&&b.type==='GRAVITY').forEach(b=>{
+      const dx = (b.x+b.w/2)-comet.x;
+      const dy = (b.y+b.h/2)-comet.y;
+      const d  = Math.sqrt(dx*dx+dy*dy);
+      if(d<150 && d>1){
+        const f = CFG.GRAVITY_BRICK_PULL / (d*0.02);
+        gx += (dx/d)*f;
+        gy += (dy/d)*f;
+      }
+    });
+  }
+
+  // Magnet: gently pull comet toward moon center
+  if(G.activeBonuses.MAGNET){
+    const dx = G.moon.x - comet.x;
+    const dy = G.moon.y - comet.y;
+    const d  = Math.sqrt(dx*dx+dy*dy);
+    if(d>1){ gx += (dx/d)*0.05; gy += (dy/d)*0.05; }
+  }
+
+  comet.vx += gx*dt;
+  comet.vy += gy*dt;
+
+  // Cap speed
+  const spd = Math.sqrt(comet.vx*comet.vx+comet.vy*comet.vy);
+  const targetSpd = CFG.COMET_SPEED * G.lvl.speedMult;
+  if(spd>targetSpd*1.8){ const s=targetSpd*1.8/spd; comet.vx*=s; comet.vy*=s; }
+  if(spd<targetSpd*0.5){ const s=targetSpd*0.5/spd; comet.vx*=s; comet.vy*=s; }
+
+  // Trail
+  comet.trail.push({x:comet.x, y:comet.y});
+  if(comet.trail.length>CFG.TRAIL_LEN) comet.trail.shift();
+
+  // Move
+  comet.x += comet.vx * spdMod * dt;
+  comet.y += comet.vy * spdMod * dt;
+
+  // Wall collisions
+  if(comet.x - comet.r < 0){ comet.x = comet.r; comet.vx = Math.abs(comet.vx); spawnImpact(comet.x,comet.y,'wall'); }
+  if(comet.x + comet.r > W){ comet.x = W-comet.r; comet.vx = -Math.abs(comet.vx); spawnImpact(comet.x,comet.y,'wall'); }
+  if(comet.y - comet.r < 0){ comet.y = comet.r; comet.vy = Math.abs(comet.vy); spawnImpact(comet.x,comet.y,'wall'); }
+
+  // Lost below screen
+  if(comet.y - comet.r > H+40){ comet.active=false; return; }
+
+  // Moon collision
+  moonCollide(comet);
+
+  // Brick collision
+  brickCollide(comet);
+}
+
+function moonCollide(comet){
+  const m = G.moon;
+  const hw = m.hw * (G.activeBonuses.BIG_MOON ? 1.6 : 1);
+  const dx = comet.x - m.x;
+  const dy = comet.y - (m.y - m.ht/2);
+
+  // ellipse-ish paddle check
+  if(Math.abs(dx)<hw && Math.abs(dy)<m.ht+comet.r && comet.vy>0){
+    comet.y = m.y - m.ht/2 - comet.r;
+    comet.vy = -Math.abs(comet.vy);
+
+    // Edge effect: angle adjustment based on hit position
+    const norm = dx / hw;          // -1 to 1
+    const deflect = norm * 1.2;   // max 1.2 rad deflection
+    const spd = Math.sqrt(comet.vx*comet.vx+comet.vy*comet.vy);
+    const angle = Math.atan2(comet.vy, comet.vx) + deflect*0.35;
+    comet.vx = Math.cos(angle)*spd;
+    comet.vy = -Math.abs(Math.sin(angle)*spd);
+
+    spawnImpact(comet.x, m.y, 'moon');
+  }
+}
+
+function brickCollide(comet){
+  for(const b of G.bricks){
+    if(!b.alive) continue;
+    const cx = comet.x, cy = comet.y, r = comet.r;
+    // AABB + circle
+    const nearX = Math.max(b.x, Math.min(cx, b.x+b.w));
+    const nearY = Math.max(b.y, Math.min(cy, b.y+b.h));
+    const dx = cx-nearX, dy = cy-nearY;
+    if(dx*dx+dy*dy > r*r) continue;
+
+    // Determine collision side
+    const overlapL = (cx+r) - b.x;
+    const overlapR = (b.x+b.w) - (cx-r);
+    const overlapT = (cy+r) - b.y;
+    const overlapB = (b.y+b.h) - (cy-r);
+
+    if(Math.min(overlapL,overlapR) < Math.min(overlapT,overlapB)){
+      comet.vx = -comet.vx;
+      comet.x += comet.vx>0 ? overlapL : -overlapR;
+    } else {
+      comet.vy = -comet.vy;
+      comet.y += comet.vy>0 ? overlapT : -overlapB;
+    }
+
+    hitBrick(b, comet);
+    break; // one brick per frame per comet
+  }
+}
+
+function hitBrick(b, comet){
+  b.hp--;
+  b.crumble = 1 - b.hp/b.maxHp;
+  b.shake = 8;
+
+  const pts = b.def.score * G.multiplier;
+  G.score += pts;
+  spawnScorePopup(b.x+b.w/2, b.y, pts);
+  spawnImpact(b.x+b.w/2, b.y+b.h/2, b.type);
+
+  if(b.hp<=0){
+    b.alive = false;
+    spawnCrumble(b);
+    G.shakeT = 6;
+
+    // Volatile: explode nearby
+    if(b.type==='VOLATILE'){
+      explodeNear(b);
+    }
+
+    // Drop bonus?
+    if(Math.random()<b.def.dropChance){
+      dropBonus(b.x+b.w/2, b.y+b.h/2);
+    }
+  }
+}
+
+function explodeNear(b){
+  const cx = b.x+b.w/2, cy = b.y+b.h/2;
+  G.bricks.forEach(nb=>{
+    if(!nb.alive||nb===b) return;
+    const d = Math.hypot(nb.x+nb.w/2-cx, nb.y+nb.h/2-cy);
+    if(d<CFG.SHOCKWAVE_R*0.7){
+      nb.hp=0; nb.alive=false;
+      spawnCrumble(nb);
+      G.score += nb.def.score * G.multiplier;
+    }
+  });
+  spawnExplosion(cx, cy);
+  G.shakeT = 12;
+}
+
+// ── PARTICLES ────────────────────────────────────────────────────
+function spawnImpact(x,y,type){
+  const cols = {
+    moon:  ['#e0d0ff','#c0b0ff','#a090ee'],
+    wall:  ['#6678aa','#8899cc'],
+    STONE: ['#a09898','#c0b8b0'],
+    REINFORCE:['#6688bb','#88aadd'],
+    CRYSTAL:  ['#44ffee','#88ffdd','#00ddcc'],
+    VOLATILE: ['#ff8844','#ffbb44','#ff4422'],
+    GRAVITY:  ['#cc88ff','#aa44ff'],
+  };
+  const palette = cols[type]||cols.STONE;
+  for(let i=0;i<6;i++){
+    const a = Math.random()*Math.PI*2;
+    const spd = 0.5+Math.random()*2.5;
+    G.particles.push({
+      x,y,
+      vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,
+      r:1+Math.random()*2,
+      life:1, decay:0.04+Math.random()*0.04,
+      color:palette[Math.floor(Math.random()*palette.length)],
+      type:'spark',
+    });
+  }
+}
+
+function spawnCrumble(b){
+  const cx=b.x+b.w/2, cy=b.y+b.h/2;
+  const cols = {
+    STONE:['#887878','#aa9090','#665858'],
+    REINFORCE:['#556699','#7788bb'],
+    CRYSTAL:['#33ccbb','#66ffee','#00bbaa'],
+    VOLATILE:['#dd4422','#ff8844','#ffaa22'],
+    GRAVITY:['#9933cc','#cc66ff'],
+  };
+  const palette = (cols[b.type]||cols.STONE);
+  for(let i=0;i<14;i++){
+    const a = Math.random()*Math.PI*2;
+    const spd = 1+Math.random()*4;
+    const sz  = 2+Math.random()*(b.w/5);
+    G.particles.push({
+      x:cx+(Math.random()-.5)*b.w*.8,
+      y:cy+(Math.random()-.5)*b.h*.8,
+      vx:Math.cos(a)*spd, vy:Math.sin(a)*spd-1,
+      gy:0.15, // gravity on chunks
+      r:sz, life:1, decay:0.012+Math.random()*0.02,
+      color:palette[Math.floor(Math.random()*palette.length)],
+      type:'chunk',
+      rot:Math.random()*Math.PI,
+      rspd:(Math.random()-.5)*.15,
+    });
+  }
+}
+
+function spawnExplosion(x,y){
+  for(let i=0;i<30;i++){
+    const a=Math.random()*Math.PI*2;
+    const spd=2+Math.random()*6;
+    G.particles.push({
+      x,y,
+      vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,
+      r:2+Math.random()*4,
+      life:1,decay:0.02+Math.random()*0.03,
+      color:['#ff4422','#ffaa22','#ffdd00','#ff8844'][Math.floor(Math.random()*4)],
+      type:'spark',
+    });
+  }
+  // Shockwave ring
+  G.particles.push({ type:'ring',x,y,r:5,maxR:CFG.SHOCKWAVE_R,life:1,decay:0.03,color:'rgba(255,150,50,0.6)' });
+}
+
+let scorePopups = [];
+function spawnScorePopup(x,y,pts){
+  scorePopups.push({x,y,pts,life:1,vy:-0.8});
+}
+
+function updateParticles(dt){
+  G.particles = G.particles.filter(p=>{
+    p.life -= p.decay*dt;
+    if(p.life<=0) return false;
+    if(p.type==='ring'){ p.r = p.maxR*(1-p.life); return true; }
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    if(p.gy) p.vy += p.gy*dt;
+    if(p.rot!==undefined) p.rot += p.rspd*dt;
+    return true;
+  });
+  if(G.particles.length>CFG.PARTICLE_MAX){
+    G.particles.splice(0, G.particles.length-CFG.PARTICLE_MAX);
+  }
+  scorePopups = scorePopups.filter(p=>{
+    p.life-=0.015*dt; p.y+=p.vy*dt; return p.life>0;
+  });
+}
+
+function updateClouds(dt){
+  CLOUDS.forEach(c=>{ c.x-=c.speed*dt; if(c.x+c.w<0) c.x=W+c.w; });
+}
+
+// ── BONUS DROPS ──────────────────────────────────────────────────
+function dropBonus(x,y){
+  const type = BONUS_TYPES[Math.floor(Math.random()*BONUS_TYPES.length)];
+  G.bonusDrop.push({ x,y,type,vy:1.2,life:1, r:16, collected:false });
+}
+
+function updateBonusDrops(dt){
+  const moonHW = G.moon.hw * (G.activeBonuses.BIG_MOON?1.6:1);
+  G.bonusDrop = G.bonusDrop.filter(b=>{
+    if(b.collected) return false;
+    b.y += b.vy*dt;
+    // Moon catch
+    if(Math.abs(b.x-G.moon.x)<moonHW && Math.abs(b.y-G.moon.y)<30){
+      collectBonus(b.type);
+      spawnBonusBurst(b.x,b.y);
+      b.collected=true; return false;
+    }
+    if(b.y>H+20) return false;
+    return true;
+  });
+}
+
+function collectBonus(type){
+  switch(type.id){
+    case 'EXTRA_COMET':
+      launchComet();
+      break;
+    case 'MULTIBALL':
+      if(G.comets.length>0){
+        const c=G.comets[0];
+        const a=Math.atan2(c.vy,c.vx);
+        const spd=Math.sqrt(c.vx*c.vx+c.vy*c.vy);
+        G.comets.push({...c,vx:Math.cos(a+0.4)*spd,vy:Math.sin(a+0.4)*spd,trail:[]});
+        G.comets.push({...c,vx:Math.cos(a-0.4)*spd,vy:Math.sin(a-0.4)*spd,trail:[]});
+      }
+      break;
+    case 'SHOCKWAVE':
+      const m=G.moon;
+      G.bricks.forEach(b=>{
+        if(!b.alive) return;
+        const d=Math.hypot(b.x+b.w/2-m.x, b.y+b.h/2-m.y);
+        if(d<CFG.SHOCKWAVE_R){ b.hp--; if(b.hp<=0){b.alive=false;spawnCrumble(b);} }
+      });
+      spawnExplosion(m.x, m.y-40);
+      G.shakeT=14;
+      break;
+    default:
+      // timed bonus
+      if(type.id==='MULTIPLIER') G.multiplier=2;
+      G.activeBonuses[type.id] = type.duration;
+      break;
+  }
+}
+
+function updateActiveBonuses(dt){
+  Object.keys(G.activeBonuses).forEach(k=>{
+    G.activeBonuses[k]-=dt;
+    if(G.activeBonuses[k]<=0){
+      delete G.activeBonuses[k];
+      if(k==='MULTIPLIER') G.multiplier=1;
+    }
+  });
+}
+
+function spawnBonusBurst(x,y){
+  for(let i=0;i<12;i++){
+    const a=Math.random()*Math.PI*2;
+    G.particles.push({
+      x,y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,
+      r:2,life:1,decay:0.035,
+      color:'#ffd700',type:'spark',
+    });
+  }
+}
+
+// ── LEVEL FLOW ───────────────────────────────────────────────────
+function levelWin(){
+  G.phase='levelwin';
+  const bonus = (G.lvl.id+1)*500 + G.lives*200;
+  G.score += bonus;
+  document.getElementById('lw-score').textContent = G.score.toLocaleString();
+  const next = LEVELS[(G.levelIdx+1)%LEVELS.length];
+  document.getElementById('lw-msg').textContent =
+    G.levelIdx+1 >= LEVELS.length
+      ? 'All castles have fallen to the cosmos.'
+      : `Next: ${next.name}`;
+  showOverlay('ov-levelwin');
+}
+
+function nextLevel(){
+  const nextIdx = G.levelIdx+1;
+  if(nextIdx>=LEVELS.length){
+    G.phase='win';
+    document.getElementById('win-score').textContent=G.score.toLocaleString();
+    showOverlay('ov-win'); return;
+  }
+  hideAllOverlays();
+  G = initState(nextIdx);
+  G.phase='launching';
+  updateHUD();
+}
+
+// ── RENDER ───────────────────────────────────────────────────────
+function render(){
+  // Screen shake
+  let sx=0,sy=0;
+  if(G.shakeT>0){ sx=(Math.random()-.5)*G.shakeT*1.2; sy=(Math.random()-.5)*G.shakeT*1.2; }
+
+  ctx.save();
+  ctx.translate(sx,sy);
+
+  drawBackground();
+  drawClouds();
+  drawBricks();
+  drawBonusDrops();
+  drawComets();
+  drawMoon();
+  drawParticles();
+  drawScorePopups();
+
+  ctx.restore();
+}
+
+function drawBackground(){
+  // Deep space gradient
+  const t = G.tick*0.002;
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0, '#050a1a');
+  grad.addColorStop(0.5, '#0a0f28');
+  grad.addColorStop(1, '#0d0825');
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,W,H);
+
+  // Stars
+  ctx.save();
+  STARS.forEach(s=>{
+    s.twinkle+=s.speed;
+    const a = s.a*(0.6+0.4*Math.sin(s.twinkle));
+    ctx.globalAlpha=a;
+    ctx.fillStyle='#ffffff';
+    ctx.beginPath();
+    ctx.arc(s.x%W, s.y%H, s.r,0,Math.PI*2);
+    ctx.fill();
+  });
+  ctx.restore();
+
+  // Distant nebula glow
+  const neb = ctx.createRadialGradient(W*0.3,H*0.2,0,W*0.3,H*0.2,W*0.6);
+  neb.addColorStop(0,'rgba(80,40,140,0.06)');
+  neb.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=neb;
+  ctx.fillRect(0,0,W,H);
+}
+
+function drawClouds(){
+  ctx.save();
+  CLOUDS.forEach(c=>{
+    const alpha = c.a * (G.activeBonuses.SLOW ? 0.5 : 1);
+    ctx.globalAlpha=alpha;
+    const grad=ctx.createRadialGradient(c.x,c.y,0,c.x,c.y,c.w*0.7);
+    grad.addColorStop(0,'rgba(180,170,220,0.9)');
+    grad.addColorStop(1,'rgba(100,90,150,0)');
+    ctx.fillStyle=grad;
+    ctx.beginPath();
+    ctx.ellipse(c.x,c.y,c.w,c.h,0,0,Math.PI*2);
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+function drawBricks(){
+  G.bricks.forEach(b=>{
+    if(!b.alive){ return; }
+    const def=b.def;
+
+    // Shake offset
+    let bsx=0,bsy=0;
+    if(b.shake>0){ b.shake-=0.4; bsx=(Math.random()-.5)*b.shake*0.5; bsy=(Math.random()-.5)*b.shake*0.5; }
+
+    ctx.save();
+    ctx.translate(bsx,bsy);
+
+    // Brick body
+    const grad=ctx.createLinearGradient(b.x,b.y,b.x,b.y+b.h);
+    grad.addColorStop(0, lighten(def.color,0.2));
+    grad.addColorStop(1, darken(def.color,0.2));
+    ctx.fillStyle=grad;
+
+    // Crumble: clip corners
+    const cr = b.crumble*4;
+    roundRect(ctx, b.x, b.y, b.w, b.h, cr);
+    ctx.fill();
+
+    // Glow border
+    ctx.shadowColor=def.glow;
+    ctx.shadowBlur=6+b.crumble*8;
+    ctx.strokeStyle=def.glow;
+    ctx.lineWidth=1;
+    roundRect(ctx,b.x,b.y,b.w,b.h,cr);
+    ctx.stroke();
+    ctx.shadowBlur=0;
+
+    // HP crack marks
+    if(b.crumble>0.3){
+      ctx.strokeStyle=`rgba(0,0,0,${b.crumble*0.7})`;
+      ctx.lineWidth=1;
+      // diagonal crack
+      ctx.beginPath();
+      ctx.moveTo(b.x+b.w*0.2, b.y+b.h*0.2);
+      ctx.lineTo(b.x+b.w*(0.2+b.crumble*0.4), b.y+b.h*(0.2+b.crumble*0.6));
+      ctx.stroke();
+    }
+
+    // Emoji symbol (small, centered)
+    if(b.w>28){
+      ctx.globalAlpha=0.7-b.crumble*0.4;
+      ctx.font=`${Math.floor(b.h*0.55)}px serif`;
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText(def.symbol, b.x+b.w/2, b.y+b.h/2);
+    }
+
+    ctx.restore();
+  });
+}
+
+function drawMoon(){
+  const m=G.moon;
+  const hw=m.hw*(G.activeBonuses.BIG_MOON?1.6:1);
+  const t=G.tick;
+
+  ctx.save();
+
+  // Glow halo
+  const halo=ctx.createRadialGradient(m.x,m.y,hw*0.5,m.x,m.y,hw*1.3);
+  halo.addColorStop(0,'rgba(200,185,255,0.12)');
+  halo.addColorStop(1,'rgba(200,185,255,0)');
+  ctx.fillStyle=halo;
+  ctx.beginPath();
+  ctx.ellipse(m.x,m.y,hw*1.3,m.ht*3,0,0,Math.PI*2);
+  ctx.fill();
+
+  // Main paddle body — crescent shape
+  const grad=ctx.createLinearGradient(m.x-hw,m.y-m.ht,m.x+hw,m.y+m.ht);
+  grad.addColorStop(0,'rgba(220,210,255,0.95)');
+  grad.addColorStop(0.5,'rgba(180,165,240,0.95)');
+  grad.addColorStop(1,'rgba(140,120,210,0.95)');
+  ctx.fillStyle=grad;
+  ctx.shadowColor='rgba(180,160,255,0.8)';
+  ctx.shadowBlur=14;
+  ctx.beginPath();
+  ctx.ellipse(m.x, m.y, hw, m.ht, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Surface sheen
+  ctx.globalAlpha=0.4;
+  ctx.fillStyle='rgba(255,255,255,0.6)';
+  ctx.beginPath();
+  ctx.ellipse(m.x-hw*0.1, m.y-m.ht*0.2, hw*0.55, m.ht*0.35, -0.2,0,Math.PI*2);
+  ctx.fill();
+
+  // Craters (decorative)
+  ctx.globalAlpha=0.12;
+  ctx.fillStyle='#8070c0';
+  [[0.4,0.1,3],[−0.25,0.15,5],[0.15,−0.1,4]].forEach(([fx,fy,r])=>{
+    ctx.beginPath();
+    ctx.arc(m.x+hw*fx, m.y+m.ht*fy, r, 0, Math.PI*2);
+    ctx.fill();
+  });
+
+  ctx.restore();
+}
+
+function drawComets(){
+  G.comets.forEach(comet=>{
+    // Trail
+    comet.trail.forEach((pt,i)=>{
+      const frac=i/comet.trail.length;
+      ctx.save();
+      ctx.globalAlpha=frac*0.5;
+      const r=comet.r*frac*0.8;
+      const grad=ctx.createRadialGradient(pt.x,pt.y,0,pt.x,pt.y,r);
+      grad.addColorStop(0,'rgba(200,230,255,0.9)');
+      grad.addColorStop(0.4,'rgba(140,170,255,0.5)');
+      grad.addColorStop(1,'rgba(80,120,255,0)');
+      ctx.fillStyle=grad;
+      ctx.beginPath();
+      ctx.arc(pt.x,pt.y,r,0,Math.PI*2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Core glow
+    ctx.save();
+    ctx.shadowColor='#88aaff';
+    ctx.shadowBlur=16;
+    const cg=ctx.createRadialGradient(comet.x,comet.y,0,comet.x,comet.y,comet.r*1.5);
+    cg.addColorStop(0,'rgba(255,255,255,1)');
+    cg.addColorStop(0.3,'rgba(180,200,255,0.9)');
+    cg.addColorStop(1,'rgba(80,120,255,0)');
+    ctx.fillStyle=cg;
+    ctx.beginPath();
+    ctx.arc(comet.x,comet.y,comet.r*1.5,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+function drawParticles(){
+  G.particles.forEach(p=>{
+    ctx.save();
+    ctx.globalAlpha=p.life;
+    if(p.type==='ring'){
+      ctx.strokeStyle=p.color;
+      ctx.lineWidth=2*(p.life);
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.stroke();
+    } else if(p.type==='chunk'){
+      ctx.translate(p.x,p.y);
+      ctx.rotate(p.rot||0);
+      ctx.fillStyle=p.color;
+      ctx.fillRect(-p.r/2,-p.r/2,p.r,p.r);
+    } else {
+      ctx.fillStyle=p.color;
+      ctx.shadowColor=p.color;
+      ctx.shadowBlur=4;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+  });
+}
+
+function drawBonusDrops(){
+  G.bonusDrop.forEach(b=>{
+    ctx.save();
+    ctx.globalAlpha=0.95;
+    // glow
+    ctx.shadowColor='#ffd700';
+    ctx.shadowBlur=12+Math.sin(G.tick*0.2)*4;
+    ctx.font='20px serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(b.type.emoji, b.x, b.y);
+    ctx.restore();
+  });
+}
+
+function drawScorePopups(){
+  scorePopups.forEach(p=>{
+    ctx.save();
+    ctx.globalAlpha=p.life;
+    ctx.fillStyle='#ffd700';
+    ctx.font=`bold ${10+p.life*4}px Cinzel, serif`;
+    ctx.textAlign='center';
+    ctx.shadowColor='rgba(255,200,0,0.6)';
+    ctx.shadowBlur=6;
+    ctx.fillText(`+${p.pts}`, p.x, p.y);
+    ctx.restore();
+  });
+}
+
+// ── HUD ─────────────────────────────────────────────────────────
+function updateHUD(){
+  if(!G) return;
+  document.getElementById('hud-score').textContent = G.score.toLocaleString();
+  document.getElementById('hud-level').textContent = G.lvl.roman;
+
+  const livesEl=document.getElementById('hud-lives');
+  livesEl.innerHTML='';
+  for(let i=0;i<3;i++){
+    const pip=document.createElement('span');
+    pip.className='lives-pip'+(i<G.lives?' alive':'');
+    livesEl.appendChild(pip);
+  }
+
+  const bonusBar=document.getElementById('bonus-bar');
+  bonusBar.innerHTML='';
+  Object.keys(G.activeBonuses).forEach(k=>{
+    const b=BONUS_TYPES.find(bt=>bt.id===k);
+    if(b){
+      const el=document.createElement('span');
+      el.className='bonus-pip';
+      el.textContent=b.emoji;
+      el.title=b.label;
+      bonusBar.appendChild(el);
+    }
+  });
+}
+
+// ── OVERLAYS ─────────────────────────────────────────────────────
+function showOverlay(id){
+  hideAllOverlays();
+  document.getElementById(id).classList.add('show');
+}
+function hideAllOverlays(){
+  document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('show'));
+}
+function showTitle(){ showOverlay('ov-title'); }
+function showHow(){ showOverlay('ov-how'); }
+function hideHow(){ showOverlay('ov-title'); }
+
+function startGame(){
+  hideAllOverlays();
+  resize();
+  genStars();
+  genClouds();
+  G = initState(0);
+  G.phase='launching';
+  updateHUD();
+  if(!RAF){ lastT=performance.now(); RAF=requestAnimationFrame(loop); }
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────
+function roundRect(c,x,y,w,h,r=4){
+  c.beginPath();
+  c.moveTo(x+r,y);
+  c.lineTo(x+w-r,y);
+  c.quadraticCurveTo(x+w,y,x+w,y+r);
+  c.lineTo(x+w,y+h-r);
+  c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  c.lineTo(x+r,y+h);
+  c.quadraticCurveTo(x,y+h,x,y+h-r);
+  c.lineTo(x,y+r);
+  c.quadraticCurveTo(x,y,x+r,y);
+  c.closePath();
+}
+
+function lighten(hex, amt){
+  const c=parseInt(hex.slice(1),16);
+  const r=Math.min(255,((c>>16)&0xff)+Math.round(255*amt));
+  const g=Math.min(255,((c>>8)&0xff)+Math.round(255*amt));
+  const b=Math.min(255,(c&0xff)+Math.round(255*amt));
+  return `rgb(${r},${g},${b})`;
+}
+function darken(hex,amt){ return lighten(hex,-amt); }
+
+// ── BOOT ────────────────────────────────────────────────────────
+resize();
+genStars();
+genClouds();
+
+// Idle starfield animation before game starts
+function idleStars(ts){
+  if(G && G.phase==='playing') return; // game loop takes over
+  const dt=Math.min((ts-lastT)/16.67,3); lastT=ts;
+  if(!G){
+    ctx.fillStyle='#050a1a';
+    ctx.fillRect(0,0,W||480,H||900);
+    STARS.forEach(s=>{
+      s.twinkle+=s.speed;
+      const a=s.a*(0.6+0.4*Math.sin(s.twinkle));
+      ctx.globalAlpha=a;
+      ctx.fillStyle='#fff';
+      ctx.beginPath();
+      ctx.arc(s.x%(W||480),s.y%(H||900),s.r,0,Math.PI*2);
+      ctx.fill();
+      ctx.globalAlpha=1;
+    });
+  } else {
+    render();
+    updateHUD();
+  }
+  RAF=requestAnimationFrame(idleStars);
+}
+lastT=performance.now();
+RAF=requestAnimationFrame(idleStars);
+</script>
+</body>
+</html>
