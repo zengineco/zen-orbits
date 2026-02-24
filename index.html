@@ -542,7 +542,9 @@ canvas.addEventListener('mousedown', e=>{
 canvas.addEventListener('mousemove', e=>{
   if(dragX===null || !G) return;
   const x = getX(e);
-  moveMoon(x - moonDragStart);
+  const delta = x - dragX;
+  dragX = x;
+  G.moon.x = Math.max(G.moon.hw, Math.min(W - G.moon.hw, G.moon.x + delta));
 });
 canvas.addEventListener('mouseup', ()=>{ dragX=null; });
 
@@ -557,7 +559,9 @@ canvas.addEventListener('touchmove', e=>{
   e.preventDefault();
   if(dragX===null || !G) return;
   const x = getX(e);
-  moveMoon(x - moonDragStart);
+  const delta = x - dragX;
+  dragX = x;
+  G.moon.x = Math.max(G.moon.hw, Math.min(W - G.moon.hw, G.moon.x + delta));
 }, {passive:false});
 canvas.addEventListener('touchend', ()=>{ dragX=null; });
 
@@ -1164,7 +1168,7 @@ function drawMoon(){
   // Craters (decorative)
   ctx.globalAlpha=0.12;
   ctx.fillStyle='#8070c0';
-  [[0.4,0.1,3],[−0.25,0.15,5],[0.15,−0.1,4]].forEach(([fx,fy,r])=>{
+  [[0.4,0.1,3],[-0.25,0.15,5],[0.15,-0.1,4]].forEach(([fx,fy,r])=>{
     ctx.beginPath();
     ctx.arc(m.x+hw*fx, m.y+m.ht*fy, r, 0, Math.PI*2);
     ctx.fill();
