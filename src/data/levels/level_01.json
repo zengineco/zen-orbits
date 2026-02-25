@@ -1,0 +1,8 @@
+{
+  "id": 1,
+  "name": "The First Citadel",
+  "bricks": [
+    { "x": 40, "y": 100, "w": 60, "h": 20, "alive": true, "color": "#8878a8" },
+    { "x": 110, "y": 100, "w": 60, "h": 20, "alive": true, "color": "#8878a8" }
+  ]
+}
